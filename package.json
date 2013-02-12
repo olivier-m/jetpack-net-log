@@ -1,0 +1,10 @@
+{
+    "name": "net-log",
+    "fullName": "Jetpack net-log",
+    "description": "Resource loading watcher for Addon-SDK",
+    "author": "Olivier Meunier <olivier@neokraft.net>",
+    "version": "1.0",
+    "license": "MPL 2.0",
+
+    "lib": ""
+}
