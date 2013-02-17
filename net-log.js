@@ -338,6 +338,7 @@ const getWindowForRequest = function(aRequest) {
     }
     return null;
 };
+exports.getWindowForRequest = getWindowForRequest;
 
 const getBrowserForRequest = function(request) {
     if (request instanceof Ci.nsIRequest) {
@@ -356,4 +357,4 @@ const getBrowserForRequest = function(request) {
     }
     return null;
 };
-
+exports.getBrowserForRequest = getBrowserForRequest;
