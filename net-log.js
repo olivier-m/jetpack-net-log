@@ -17,8 +17,15 @@ const browserMap = new WeakMap();
 exports.registerBrowser = function(browser, options) {
     let data = {
         options: mix({
+            // These two to get formatted request data
             onRequest: null,
             onResponse: null,
+
+            // These two if you need to tamper data
+            _onRequest: null,
+            _onResponse: null,
+
+            // Mime types to capture (regexp array)
             captureTypes: []
         }, options || {}),
         requestList: []
@@ -62,6 +69,10 @@ const onRequestStart = function(subject, data) {
     requestList.push(subject.name);
     let index = requestList.length - 1;
 
+    if (typeof(options._onRequest) === "function") {
+        options._onRequest(subject);
+    }
+
     if (typeof(options.onRequest) === "function") {
         options.onRequest(traceRequest(index, subject));
     }
@@ -75,7 +86,7 @@ const onRequestResponse = function(subject, data) {
 
     // Get request ID
     let index;
-    let {requestList} = browserMap.get(browser);
+    let {options, requestList} = browserMap.get(browser);
     requestList = requestList.map(function(val, i) {
         if (subject.name == val) {
             index = i;
@@ -83,6 +94,10 @@ const onRequestResponse = function(subject, data) {
         }
         return val;
     });
+
+    if (typeof(options._onResponse) === "function") {
+        options._onResponse(subject);
+    }
 
     let listener = new TracingListener(subject, index, browserMap.get(browser).options);
     subject.QueryInterface(Ci.nsITraceableChannel);
