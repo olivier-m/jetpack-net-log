@@ -135,10 +135,10 @@ exports["test one resource"] = function(assert, done) {
         assert.equal(response.body.length, response.bodySize);
 
         let contentType = response.headers.filter(function(v) {
-            return v[0] == "Content-Type";
+            return v.name == "Content-Type";
         });
         assert.equal(contentType.length, 1);
-        assert.equal(contentType[0][1], "text/html; charset=utf-8");
+        assert.equal(contentType[0].value, "text/html; charset=utf-8");
 
         return result.close();
     })

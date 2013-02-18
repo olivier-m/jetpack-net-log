@@ -239,7 +239,9 @@ const traceRequest = function(id, request) {
     request.QueryInterface(Ci.nsIHttpChannel);
     let headers = [];
     request.visitRequestHeaders(function(name, value) {
-        headers.push([name, value]);
+        value.split("\n").forEach(function(v) {
+            headers.push({"name": name, "value": v});
+        });
     });
 
     return {
@@ -255,15 +257,17 @@ const traceResponse = function(id, request) {
     request.QueryInterface(Ci.nsIHttpChannel);
     let headers = [];
     request.visitResponseHeaders(function(name, value) {
-        headers.push([name, value]);
+        value.split("\n").forEach(function(v) {
+            headers.push({"name": name, "value": v});
+        });
     });
 
     // Getting redirect if any
     let redirect = null
     if (parseInt(request.responseStatus / 100) == 3) {
         headers.forEach(function(value) {
-            if (value[0].toLowerCase() == "location") {
-                redirect = ioService.newURI(value[1], null, request.URI).spec;
+            if (value.name.toLowerCase() == "location") {
+                redirect = ioService.newURI(value.value, null, request.URI).spec;
             }
         });
     }
