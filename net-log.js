@@ -5,13 +5,14 @@
 
 const {Cc, Ci} = require("chrome");
 const {mix} = require("sdk/core/heritage");
+const unload = require("sdk/system/unload");
 
 const observers = require("sdk/deprecated/observer-service");
 
 const imgTools = Cc["@mozilla.org/image/tools;1"].getService(Ci.imgITools);
 const ioService = Cc["@mozilla.org/network/io-service;1"].getService(Ci.nsIIOService);
 
-const browserMap = new WeakMap();
+let browserMap = new WeakMap();
 
 
 exports.registerBrowser = function(browser, options) {
@@ -44,13 +45,16 @@ exports.unregisterBrowser = function(browser) {
     }
 };
 
-exports.startTracer = function() {
+const startTracer = function() {
     observers.add("http-on-modify-request", onRequestStart);
     observers.add("http-on-examine-response", onRequestResponse);
     observers.add("http-on-examine-cached-response", onRequestResponse);
-};
 
-exports.stopTracer = function() {
+    unload.when(exports.stopTracer);
+};
+exports.startTracer = startTracer;
+
+const stopTracer = function() {
     try {
         observers.remove("http-on-modify-request", onRequestStart);
         observers.remove("http-on-examine-response", onRequestResponse);
@@ -58,7 +62,10 @@ exports.stopTracer = function() {
     } catch(e) {
         console.exception(e);
     }
+
+    browserMap = new WeakMap();
 };
+exports.stopTracer = stopTracer;
 
 const onRequestStart = function(subject, data) {
     let browser = getBrowserForRequest(subject);
