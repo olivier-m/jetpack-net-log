@@ -293,6 +293,7 @@ const traceResponse = function(id, request) {
         headers: headers,
         bodySize: 0,
         contentType: request.contentType,
+        contentCharset: request.contentCharset,
         redirectURL: redirect,
         stage: null,
         status: request.responseStatus,

@@ -127,6 +127,7 @@ exports["test one resource"] = function(assert, done) {
         assert.equal(response.id, 0);
         assert.equal(response.url, result.url);
         assert.equal(response.contentType, "text/html");
+        assert.equal(response.contentCharset, "utf-8");
         assert.equal(response.redirectURL, null);
         assert.equal(response.stage, "end");
         assert.equal(response.status, 200);
