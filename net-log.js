@@ -137,8 +137,9 @@ TracingListener.prototype = {
             if (typeof(request.URI) !== "undefined" && this._inWindow(request)) {
                 this.dataLength += count;
                 let win = getWindowForRequest(request);
-                if (win.location.href == request.URI.spec ||
-                    /^image\//.test(request.contentType) || this._shouldCapture(request))
+                if (this._defragURL(win.location) == request.URI.spec ||
+                    /^image\//.test(request.contentType) ||
+                    this._shouldCapture(request))
                 {
                     let [data, newIS] = this._captureData(inputStream, count);
                     this.data.push(data);
@@ -184,7 +185,9 @@ TracingListener.prototype = {
             if (/^image\//.test(this.response.contentType)) {
                 this.response.imageInfo = imageInfo(this.response, this.response.body);
             }
-            if (!this._shouldCapture(request) && browser.contentWindow.location.href != request.URI.spec) {
+            if (!this._shouldCapture(request) &&
+                this._defragURL(browser.contentWindow.location) != request.URI.spec)
+            {
                 this.response.body = "";
             }
         }
@@ -227,6 +230,10 @@ TracingListener.prototype = {
         binaryOutputStream.writeBytes(data, count);
 
         return [data, storageStream.newInputStream(0)];
+    },
+
+    _defragURL: function(location) {
+        return location.href.substr(0, location.href.length - location.hash.length);
     },
 
     QueryInterface: function (aIID) {
