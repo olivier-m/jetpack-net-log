@@ -126,10 +126,10 @@ TracingListener.prototype = {
         }
 
         this.response.stage = "start";
-        this.response.time = Date.now();
+        this.response.time = new Date();
 
         if (typeof(this.options.onResponse) == "function") {
-            this.options.onResponse(this.response);
+            this.options.onResponse(mix({}, this.response));
         }
     },
     onDataAvailable: function(request, context, inputStream, offset, count) {
@@ -172,7 +172,7 @@ TracingListener.prototype = {
 
         // Finish response
         this.response.stage = "end";
-        this.response.time = Date.now();
+        this.response.time = new Date();
         this.response.body = this.data.join("");
         this.response.bodySize = this.dataLength;
 
@@ -193,7 +193,7 @@ TracingListener.prototype = {
         }
         this.data = [];
 
-        this.options.onResponse(this.response);
+        this.options.onResponse(mix({}, this.response));
     },
 
     _inWindow: function(request) {
@@ -262,7 +262,7 @@ const traceRequest = function(id, request) {
         id: id,
         method: request.requestMethod,
         url: request.URI.spec,
-        time: Date.now(),
+        time: new Date(),
         headers: headers
     };
 };
