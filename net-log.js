@@ -134,6 +134,7 @@ TracingListener.prototype = {
     },
     onDataAvailable: function(request, context, inputStream, offset, count) {
         try {
+            request = request.QueryInterface(Ci.nsIChannel);
             if (typeof(request.URI) !== "undefined" && this._inWindow(request)) {
                 this.dataLength += count;
                 let win = getWindowForRequest(request);
