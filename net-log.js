@@ -298,7 +298,7 @@ const traceResponse = function(id, request) {
         redirectURL: redirect,
         stage: null,
         status: request.responseStatus,
-        statusText: unescape(encodeURIComponent(request.responseStatusText)),
+        statusText: request.responseStatusText,
 
         // Extensions
         referrer: request.referrer != null && request.referrer.spec || "",
