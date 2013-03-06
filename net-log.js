@@ -12,6 +12,8 @@ const observers = require("sdk/deprecated/observer-service");
 const imgTools = Cc["@mozilla.org/image/tools;1"].getService(Ci.imgITools);
 const ioService = Cc["@mozilla.org/network/io-service;1"].getService(Ci.nsIIOService);
 
+const imageReg = /^image\/(?!svg)/;
+
 let browserMap = new WeakMap();
 
 
@@ -139,7 +141,7 @@ TracingListener.prototype = {
                 this.dataLength += count;
                 let win = getWindowForRequest(request);
                 if (this._defragURL(win.location) == request.URI.spec ||
-                    /^image\//.test(request.contentType) ||
+                    imageReg.test(request.contentType) ||
                     this._shouldCapture(request))
                 {
                     let [data, newIS] = this._captureData(inputStream, count);
@@ -183,7 +185,7 @@ TracingListener.prototype = {
         }
 
         if (this.response.body) {
-            if (/^image\//.test(this.response.contentType)) {
+            if (imageReg.test(this.response.contentType)) {
                 this.response.imageInfo = imageInfo(this.response, this.response.body);
             }
             if (!this._shouldCapture(request) &&
