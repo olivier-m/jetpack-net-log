@@ -35,8 +35,16 @@ Register a new browser element. All network requests associated with the provide
 `options` is an object with the following properties:
 
 * `onRequest(request)`: function called when a request is initiated
-* `onResponse(response)`: function called when a request is received. This function is called twice (start and end of response).
+* `onResponse(response)`: function called when a response is received. This function is called twice (start and end of response).
 * `captureTypes`: list of regular expressions indicating which mime-types you want to capture. They will be available as `body` property in `response` object.
+
+Other properties allow you to follow the loading of the main document in the given browser. You should set callback function to them:
+
+* `onLoadStarted`: called when the load of a new document is asked in the (tab) browser
+* `onURLChanged`: called when the URL is changed. The document is not loaded yet. The callback received the new URI
+* `onTransferStarted`: called when the download of the content of the main document is started.
+* `onContentLoaded`: called when the main content is loaded. Dependant resources are not loaded yet and the document is not parsed yet
+* `onLoadFinished`: called when the document is ready. Received `"success"` or `"fail"` as parameter. All resources are loaded. The document has just received the load event.
 
 Note: if you call `registerBrowser` twice with the same `browser` argument, it will override the last registration.
 
@@ -67,8 +75,9 @@ This object is received by `onResponse` callback. It contains the following prop
  * `headers`: list of http headers
  * `bodySize`: size of the received content (entire content or chunk content)
  * `contentType`: the content type if specified
+ * `contentCharset`: the charset of the content if specified
  * `redirectURL`: if there is a redirection, the redirected URL
- * `stage`: "start", "end"
+ * `stage`: "start" or "end"
  * `status`: http status code. ex: `200`
  * `statusText`: http status text. ex: `OK`
  * `referrer`: the resource referrer
