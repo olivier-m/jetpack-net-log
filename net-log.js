@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
-const {Cc, Ci} = require("chrome");
+const {Cc, Ci, Cr} = require("chrome");
 const {mix} = require("sdk/core/heritage");
 const unload = require("sdk/system/unload");
 
@@ -15,7 +15,6 @@ const ioService = Cc["@mozilla.org/network/io-service;1"].getService(Ci.nsIIOSer
 const imageReg = /^image\/(?!svg)/;
 
 let browserMap = new WeakMap();
-
 
 exports.registerBrowser = function(browser, options) {
     let data = {
@@ -29,17 +28,62 @@ exports.registerBrowser = function(browser, options) {
             _onResponse: null,
 
             // Mime types to capture (regexp array)
-            captureTypes: []
+            captureTypes: [],
+
+
+            // --- callbacks for the main document,
+            // that makes net-log a SUPER NET LOGGER. ta-da!
+
+            // The mask.
+            // called when the load of new document is asked.
+            onLoadStarted: null,
+
+            // The red underpants.
+            // called when the URL is changed.
+            // The document is not loaded yet.
+            // the callback received the new URI
+            onURLChanged: null,
+
+            // The red mantle.
+            // called when the download of the content
+            // of the main document is started.
+            onTransferStarted :null,
+
+            // The blue tights.
+            // called when the main content is loaded.
+            // dependant resources are not loaded yet
+            // and the document is not parsed yet
+            onContentLoaded: null,
+
+            // The t-shirt with the SUPER logo (or not).
+            // called when the document is ready.
+            // Received "success" or "fail" as parameter.
+            // all resources are loaded.
+            // the document has just received the load event.
+            onLoadFinished: null
         }, options || {}),
-        requestList: []
+        requestList: [],
+        progressListener: null
     };
 
+    if (browserMap.has(browser)) {
+        let {progressListener} = browserMap.get(browser);
+        browser.removeProgressListener(progressListener);
+        progressListener.browser = null;
+        browserMap.delete(browser);
+    }
+
+    data.progressListener = new ProgressListener(browser, data.options);
+    browser.addProgressListener(data.progressListener, Ci.nsIWebProgress.NOTIFY_ALL);
     browserMap.set(browser, data);
 };
 
 exports.unregisterBrowser = function(browser) {
     try {
         if (browserMap.has(browser)) {
+            let {progressListener} = browserMap.get(browser);
+            progressListener.browser = null;
+            browser.removeProgressListener(progressListener);
             browserMap.delete(browser);
         }
     } catch(e) {
@@ -65,6 +109,8 @@ const stopTracer = function() {
         console.exception(e);
     }
 
+    //FIXME: remove progressListeners
+    // note: WeakMap is not enumerable :-/
     browserMap = new WeakMap();
 };
 exports.stopTracer = stopTracer;
@@ -395,3 +441,158 @@ const getBrowserForRequest = function(request) {
     return null;
 };
 exports.getBrowserForRequest = getBrowserForRequest;
+
+
+const ProgressListener = function(browser, options) {
+    this.browser = browser;
+    this.options = options;
+    this.mainPageURI = '';
+};
+ProgressListener.prototype = {
+    QueryInterface: function(aIID){
+        if (aIID.equals(Ci.nsIWebProgressListener) ||
+            aIID.equals(Ci.nsISupportsWeakReference) ||
+            aIID.equals(Ci.nsISupports))
+            return this;
+       throw(Cr.NS_NOINTERFACE);
+    },
+
+    isFromMainWindow : function (aChannel) {
+        let notificationCallbacks =
+                aChannel.notificationCallbacks ? aChannel.notificationCallbacks : aChannel.loadGroup.notificationCallbacks;
+
+        if (!notificationCallbacks) {
+            return false;
+        }
+        try {
+            if(notificationCallbacks.getInterface(Ci.nsIXMLHttpRequest)) {
+                // ignore requests from XMLHttpRequest
+                return false;
+            }
+        }
+        catch(e) { }
+        try {
+            let loadContext = notificationCallbacks.getInterface(Ci.nsILoadContext);
+            if (loadContext.isContent && this.browser.contentWindow == loadContext.associatedWindow) {
+                return true;
+            }
+        }
+        catch (e) {}
+        return false;
+    },
+
+
+    isLoadRequested: function(flags) {
+        return (
+            flags & Ci.nsIWebProgressListener.STATE_START &&
+            flags & Ci.nsIWebProgressListener.STATE_IS_NETWORK &&
+            flags & Ci.nsIWebProgressListener.STATE_IS_WINDOW
+        )
+    },
+
+    isStart: function(flags) {
+        return (
+            flags & Ci.nsIWebProgressListener.STATE_TRANSFERRING &&
+            flags & Ci.nsIWebProgressListener.STATE_IS_REQUEST &&
+            flags & Ci.nsIWebProgressListener.STATE_IS_DOCUMENT
+        );
+    },
+
+    isTransferDone: function(flags) {
+        return (
+            flags & Ci.nsIWebProgressListener.STATE_STOP &&
+            flags & Ci.nsIWebProgressListener.STATE_IS_REQUEST
+        );
+    },
+
+    isLoaded: function(flags) {
+        return (
+            flags & Ci.nsIWebProgressListener.STATE_STOP &&
+            flags & Ci.nsIWebProgressListener.STATE_IS_NETWORK &&
+            flags & Ci.nsIWebProgressListener.STATE_IS_WINDOW
+        );
+    },
+
+    onLocationChange : function(progress, request, location, flags) {
+
+        if (flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_ERROR_PAGE) {
+            if (typeof(this.options.onLoadFinished) === "function") {
+                this.options.onLoadFinished("fail");
+            }
+            this.mainPageURI == ''
+            return;
+        }
+
+        if (typeof(this.options.onURLChanged) === "function") {
+            this.options.onURLChanged(location.spec);
+        }
+    },
+
+    onStateChange: function(progress, request, flags, status) {
+
+        if (!(request instanceof Ci.nsIChannel || "URI" in request)) {
+            // ignore requests that are not a channel/http channel
+            return
+        }
+        let uri = request.URI.spec;
+
+        if (!this.isFromMainWindow(request))
+            return;
+
+        try {
+            if (this.mainPageURI == '') {
+                if (this.isLoadRequested(flags)) {
+                    this.mainPageURI = uri;
+                    if (typeof(this.options.onLoadStarted) === "function") {
+                        this.options.onLoadStarted();
+                    }
+                }
+                return;
+            }
+            // ignore all request that are not the main request
+            if (this.mainPageURI != uri)
+                return;
+
+            if (this.isStart(flags)) {
+                if (typeof(this.options.onTransferStarted) === "function") {
+                    this.options.onTransferStarted();
+                }
+                return;
+            }
+
+            if (this.isTransferDone(flags)) {
+                if (typeof(this.options.onContentLoaded) === "function") {
+                    this.options.onContentLoaded();
+                }
+                return;
+            }
+            if (this.isLoaded(flags)) {
+                this.mainPageURI = '';
+                if (typeof(this.options.onLoadFinished) === "function") {
+                    let success = "success";
+                    try {
+                        if (uri != 'about:blank') {
+                            request = request.QueryInterface(Ci.nsIHttpChannel);
+                            success = (request.requestSucceeded?"success":"fail");
+                        }
+                    }
+                    catch(e){
+                        success = 'fail';
+                    }
+                    this.options.onLoadFinished(success);
+                }
+                return;
+            }
+            return;
+        } catch(e) {
+            console.exception(e);
+        }
+    },
+    onStatusChange : function(aWebProgress, aRequest, aStatus, aMessage){},
+    onSecurityChange : function(aWebProgress, aRequest, aState) { },
+    debug : function(aWebProgress, aRequest) {},
+    onProgressChange : function (aWebProgress, aRequest,
+            aCurSelfProgress, aMaxSelfProgress,
+            aCurTotalProgress, aMaxTotalProgress)
+    {}
+};

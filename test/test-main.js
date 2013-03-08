@@ -18,10 +18,13 @@ let srv = startServer(port, URL("fixtures/", module.uri).toString(), [
     "01.html",
     "02.html",
     "03.html",
+    "03_iframe.html",
     "test.js",
     "test.css",
     "image.jpg",
-    "nyan.gif"
+    "nyan.gif",
+    "hello.txt",
+    "helloframe.css"
 ]);
 srv.registerPathHandler("/redir", function(request, response) {
     response.setStatusLine(request.httpVersion, 301, "Moved Permanently");
@@ -183,6 +186,7 @@ exports["test many resources"] = function(assert, done) {
     let reqs = [];
     let started = [];
     let seen = [];
+    let trace = '';
 
     openTab()
     .then(function(result) {
@@ -195,15 +199,43 @@ exports["test many resources"] = function(assert, done) {
             },
             captureTypes: [
                 /^text\/css/
-            ]
+            ],
+
+            onLoadStarted: function(){
+                trace +="LOADSTARTED:"+result.browser.contentWindow.location.href+"\n";
+            },
+
+            onURLChanged: function(newURL){
+                trace += "URLCHANGED:"+newURL+"\n";
+            },
+
+            onTransferStarted: function(){
+                trace +="TRANSFER STARTED\n";
+            },
+
+            onContentLoaded: function(){
+                trace +="CONTENT LOADED\n";
+            },
+
+            onLoadFinished: function(success){
+                trace +="LOAD FINISHED "+success+"\n";
+            }
         });
         return result.open(pageURL("/03.html"));
     })
     .then(function(result) {
         unregisterBrowser(result.browser);
-        assert.equal(reqs.length, 5);
-        assert.equal(started.length, 5);
-        assert.equal(seen.length, 5);
+
+        assert.equal(reqs.length, 8);
+        assert.equal(started.length, 8);
+        assert.equal(seen.length, 8);
+
+        assert.equal(trace,
+                     "LOADSTARTED:about:blank\n"+
+                     "URLCHANGED:"+pageURL("/03.html")+"\n"+
+                     "TRANSFER STARTED\n"+
+                     "CONTENT LOADED\n"+
+                     "LOAD FINISHED success\n");
 
         let jpg = seen.filter(function(response) {
             return response.url == pageURL("/image.jpg");
@@ -239,6 +271,27 @@ exports["test many resources"] = function(assert, done) {
         assert.equal(seen[0].body.length, seen[0].bodySize);
         assert.equal(css.body.length, css.bodySize);
 
+        let iframe = seen.filter(function(response) {
+            return response.url == pageURL("/03_iframe.html");
+        });
+        assert.equal(iframe.length, 1);
+        assert.ok(iframe[0].contentType.indexOf("text/html") === 0);
+        assert.ok(iframe[0].bodySize > 0);
+
+        let iframecss = seen.filter(function(response) {
+            return response.url == pageURL("/helloframe.css");
+        });
+        assert.equal(iframecss.length, 1);
+        assert.ok(iframecss[0].contentType.indexOf("text/css") === 0);
+        assert.ok(iframecss[0].bodySize > 0);
+
+        let xhr = seen.filter(function(response) {
+            return response.url == pageURL("/hello.txt");
+        });
+        assert.equal(xhr.length, 1);
+        assert.ok(xhr[0].contentType.indexOf("text/plain") === 0);
+        assert.ok(xhr[0].bodySize > 0);
+
         return result.close();
     })
     .then(done);
@@ -264,9 +317,9 @@ exports["test redirect"] = function(assert, done) {
     .then(function(result) {
         unregisterBrowser(result.browser);
 
-        assert.equal(reqs.length, 6);
-        assert.equal(seen.length, 6);
-        assert.equal(started.length, 6);
+        assert.equal(reqs.length, 9);
+        assert.equal(seen.length, 9);
+        assert.equal(started.length, 9);
         assert.equal(reqs[0].url, result.url);
         assert.equal(seen[0].url, result.url);
 
