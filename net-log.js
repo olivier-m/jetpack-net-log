@@ -169,6 +169,12 @@ const TracingListener = function(subject, index, options) {
 TracingListener.prototype = {
     onStartRequest: function(request, context) {
         this.originalListener.onStartRequest(request, context);
+        try {
+            request.QueryInterface(Ci.nsIChannel);
+        } catch(e) {
+            return;
+        }
+
         if (typeof(request.URI) === "undefined" || !this._inWindow(request)) {
             return;
         }
@@ -182,7 +188,12 @@ TracingListener.prototype = {
     },
     onDataAvailable: function(request, context, inputStream, offset, count) {
         try {
-            request = request.QueryInterface(Ci.nsIChannel);
+            try {
+                request.QueryInterface(Ci.nsIChannel);
+            } catch(e) {
+                return;
+            }
+
             if (typeof(request.URI) !== "undefined" && this._inWindow(request)) {
                 this.dataLength += count;
                 let win = getWindowForRequest(request);
@@ -204,45 +215,55 @@ TracingListener.prototype = {
     onStopRequest: function(request, context, statusCode) {
         this.originalListener.onStopRequest(request, context, statusCode);
 
-        if (typeof(request.URI) === "undefined" || !this._inWindow(request)) {
-            this.data = [];
+        try {
+            request.QueryInterface(Ci.nsIChannel);
+        } catch(e) {
             return;
         }
 
-        // browser could have been removed during request
-        let browser = getBrowserForRequest(request);
-        if (!browserMap.has(browser)) {
-            return;
-        }
-
-        if (typeof(this.options.onResponse) != "function") {
-            return;
-        }
-
-        // Finish response
-        this.response.stage = "end";
-        this.response.time = new Date();
-        this.response.body = this.data.join("");
-        this.response.bodySize = this.dataLength;
-
-        if (this.response.redirectURL) {
-            this.response.body = "";
-            this.response.bodySize = 0;
-        }
-
-        if (this.response.body) {
-            if (imageReg.test(this.response.contentType)) {
-                this.response.imageInfo = imageInfo(this.response, this.response.body);
+        try {
+            if (typeof(request.URI) === "undefined" || !this._inWindow(request)) {
+                this.data = [];
+                return;
             }
-            if (!this._shouldCapture(request) &&
-                this._defragURL(browser.contentWindow.location) != request.URI.spec)
-            {
+
+            // browser could have been removed during request
+            let browser = getBrowserForRequest(request);
+            if (!browserMap.has(browser)) {
+                return;
+            }
+
+            if (typeof(this.options.onResponse) != "function") {
+                return;
+            }
+
+            // Finish response
+            this.response.stage = "end";
+            this.response.time = new Date();
+            this.response.body = this.data.join("");
+            this.response.bodySize = this.dataLength;
+
+            if (this.response.redirectURL) {
                 this.response.body = "";
+                this.response.bodySize = 0;
             }
-        }
-        this.data = [];
 
-        this.options.onResponse(mix({}, this.response));
+            if (this.response.body) {
+                if (imageReg.test(this.response.contentType)) {
+                    this.response.imageInfo = imageInfo(this.response, this.response.body);
+                }
+                if (!this._shouldCapture(request) &&
+                    this._defragURL(browser.contentWindow.location) != request.URI.spec)
+                {
+                    this.response.body = "";
+                }
+            }
+            this.data = [];
+
+            this.options.onResponse(mix({}, this.response));
+        } catch(e) {
+            console.exception(e);
+        }
     },
 
     _inWindow: function(request) {
