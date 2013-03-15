@@ -2,7 +2,7 @@
 
 const {Cc, Ci} = require("chrome");
 const Q = require("sdk/core/promise");
-const {setTimeout} = require("sdk/timers");
+const {setTimeout, clearTimeout} = require("sdk/timers");
 const {URL} = require("sdk/url");
 const {getBrowserForTab, getOwnerWindow} = require("sdk/tabs/utils");
 
@@ -71,19 +71,39 @@ const openTab = function() {
 
         let open = function(url) {
             let D = Q.defer();
-            browser.addEventListener("load", function _load() {
+            let timeout;
+
+            function _load() {
+                clearTimeout(timeout)
                 browser.removeEventListener("load", _load, true);
                 setTimeout(function() {
                     D.resolve({
                         url: url,
                         tab: tab,
                         browser: browser,
-                        close: close
+                        close: close,
+                        loadFailed:false
                     });
                 }, 500);
-            }, true);
+            }
+
+            // in case on no load event (error during a request for ex),
+            // we should be able to continue tests
+            timeout = setTimeout(function() {
+                browser.removeEventListener("load", _load, true);
+                D.resolve({
+                    url: url,
+                    tab: tab,
+                    browser: browser,
+                    close: close,
+                    loadFailed:true
+                });
+            }, 1000);
+
+            browser.addEventListener("load", _load, true);
 
             browser.loadURI(url);
+
             return D.promise;
         }
 
@@ -297,6 +317,64 @@ exports["test many resources"] = function(assert, done) {
     .then(done);
 };
 
+exports["test unknown page"] = function(assert, done) {
+    let reqs = [];
+    let started = [];
+    let seen = [];
+    let trace = '';
+
+    openTab()
+    .then(function(result) {
+        registerBrowser(result.browser, {
+            onRequest: function(request) {
+                reqs.push(request);
+            },
+            onResponse: function(response) {
+                response.stage == "end" && seen.push(response) || started.push(response);
+            },
+
+            onLoadStarted: function(){
+                trace +="LOADSTARTED:"+result.browser.contentWindow.location.href+"\n";
+            },
+
+            onURLChanged: function(newURL){
+                trace += "URLCHANGED:"+newURL+"\n";
+            },
+
+            onTransferStarted: function(){
+                trace +="TRANSFER STARTED\n";
+            },
+
+            onContentLoaded: function(){
+                trace +="CONTENT LOADED\n";
+            },
+
+            onLoadFinished: function(success){
+                trace +="LOAD FINISHED "+success+"\n";
+            }
+        });
+        return result.open(pageURL("/unknown.html"));
+    })
+    .then(function(result) {
+        unregisterBrowser(result.browser);
+
+        assert.equal(reqs.length, 1);
+        assert.equal(started.length, 1);
+        assert.equal(seen.length, 1);
+
+        assert.equal(trace,
+                     "LOADSTARTED:about:blank\n"+
+                     "URLCHANGED:"+pageURL("/unknown.html")+"\n"+
+                     "TRANSFER STARTED\n"+
+                     "CONTENT LOADED\n"+
+                     "LOAD FINISHED success\n");
+
+        return result.close();
+    })
+    .then(done);
+};
+
+
 exports["test redirect"] = function(assert, done) {
     let reqs = [];
     let started = [];
@@ -335,5 +413,66 @@ exports["test redirect"] = function(assert, done) {
     })
     .then(done);
 };
+
+exports["test network error"] = function(assert, done) {
+    let reqs = [];
+    let started = [];
+    let seen = [];
+    let trace = '';
+
+    openTab()
+    .then(function(result) {
+        registerBrowser(result.browser, {
+            onRequest: function(request) {
+                reqs.push(request);
+            },
+            onResponse: function(response) {
+                response.stage == "end" && seen.push(response) || started.push(response);
+            },
+
+            onLoadStarted: function(){
+                trace +="LOADSTARTED:"+result.browser.contentWindow.location.href+"\n";
+            },
+
+            onURLChanged: function(newURL){
+                trace += "URLCHANGED:"+newURL+"\n";
+            },
+
+            onTransferStarted: function(){
+                trace +="TRANSFER STARTED\n";
+            },
+
+            onContentLoaded: function(){
+                trace +="CONTENT LOADED\n";
+            },
+
+            onLoadFinished: function(success){
+                trace +="LOAD FINISHED "+success+"\n";
+            }
+        });
+        //return result.open(pageURL("/unknown.html"));
+        return result.open("http://truc.sdsdsd/unknown.html");
+    })
+    .then(function(result) {
+        unregisterBrowser(result.browser);
+        assert.equal(result.loadFailed, true);
+
+        assert.equal(reqs.length, 2);
+        assert.equal(started.length, 0);
+        assert.equal(seen.length, 0);
+
+        assert.equal(reqs[0].url, "http://truc.sdsdsd/unknown.html");
+        assert.equal(reqs[1].url, "http://www.truc.sdsdsd/unknown.html");
+
+        assert.equal(trace,
+                     "LOADSTARTED:about:blank\n"+
+                     "CONTENT LOADED\n"+
+                     "LOAD FINISHED fail\n");
+
+        return result.close();
+    })
+    .then(done);
+};
+
 
 require("test").run(exports);
