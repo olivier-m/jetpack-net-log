@@ -4,8 +4,8 @@
     "description": "Resource loading watcher for Addon-SDK",
     "author": "Olivier Meunier <olivier@neokraft.net>",
     "contributors": ["Laurent Jouanneau <ljouanneau@gmail.com>"],
-    "version": "1.0",
+    "version": "1.1",
     "license": "MPL 2.0",
 
-    "lib": ""
+    "lib": "lib"
 }
