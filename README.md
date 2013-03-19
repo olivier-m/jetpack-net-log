@@ -34,21 +34,26 @@ Registers a new browser element. All network requests associated with the provid
 
 This event is emitted when a request starts. It received a `request` object.
 
+
 ##### response (response)
 
 This event is emitted when a response is received, at every step of a response (when it starts, when data comes in and when it stops). It received a `response` object.
+
 
 ##### startrequest ({nsIChannel} request)
 
 This raw event is emitted when a request starts and received a nsIChannel instance. This is the place to tamper data if you need to.
 
+
 ##### startresponse ({nsIChannel} request, context)
 
 This raw event is emitted when a response starts.
 
+
 ##### dataavailable ({nsIChannel} request, context, data, offset, count)
 
 This raw event is emitted when data are available.
+
 
 ##### stopresponse ({nsIChannel} request, context, statusCode)
 
@@ -76,6 +81,7 @@ This object is received by `onRequest` callback. It contains the following prope
  * `url`: the URL of the requested resource
  * `time`: Date object containing the date of the request
  * `headers`: list of http headers
+
 
 ##### response
 
@@ -115,6 +121,7 @@ Removes the browser from tracer.
 
 This function registers observers needed to activate resource tracer. It is now activated when you call `registerBrowser` for the first time.
 
+
 ### stopTracer()
 
 This function unregisters tracer observers.
@@ -153,39 +160,48 @@ Page progress tracker is available by requiring `net-log/page-progress` and prov
 
 Registers a new browser element. It returns a event target instance on which you can add event handlers. As in `net-log.registerBrowser` you can pass event handlers in `options` with a `on` prefix.
 
+
 #### Events
 
 ##### loadstarted (url)
 
 This event is emitted when load was asked.
 
+
 ##### transferstarted (url)
 
 This event is emitted when page transfer starts.
+
 
 ##### contentloaded (status, url)
 
 This event is emitted when page content is loaded. This is the equivalent event of `DOMContentLoaded` window event. `status` is a boolean indicating success or failure of loading.
 
+
 ##### loadfinished (status, url)
 
 This event is emitted when the whole page is loaded. This is the equivalent event of `load` window event. `status` is a boolean indicating success or failure of loading.
+
 
 ##### urlerror (url)
 
 This event is emitted if something went wrong while loading page. It could be a network error or a bad SSL certificate. Note that HTTP status code as nothing to do with the status.
 
+
 ##### urlchanged (url)
 
 This event is emitted on any URL change but error.
+
 
 ##### statechange (progress, {nsIChannel} request, flags, status, isMain)
 
 This raw event is called anytime progress listener state changes. `isMain` indicates if event comes from main window.
 
+
 ##### locationchange (progress, {nsIChannel} request, location, flags, isMain)
 
 This raw event is called when location changes. `isMain` indicates if event comes from main window.
+
 
 ##### statuschange (progress, {nsIChannel} request, status, message, isMain)
 
@@ -206,6 +222,68 @@ let netlog = getListener(browser) || registerBrowser(browser);
 ```
 
 
+Extra: HAR collector
+--------------------
+
+Net-log provides an utility lib to collect page and request information in [HAR format](http://www.softwareishard.com/blog/har-12-spec/). Module `net-log/har` provides the following function:
+
+
+### startCollector(browser [,options])
+
+This function starts collecting HAR data for provided `browser`. It returns a object with the following properties and methods:
+
+- `data`: Collected data.
+- `listener`: Reference to the page-progress listener instance.
+- `start()`: Starts collector.
+- `stop()`: This function stops collector.
+- `reset()`: This function resets `data` property.
+
+**Note:** Don't forget to stop any net-log and page-progress instances when needed.
+
+
+#### Options
+
+`options` is an object with the following properties:
+
+- `autoStart`: Start collector immediately. Default to `true`.
+- `wait`: see `collectfinish` event.
+- `captureTypes`: An array of RegExp matching content-type you want to capture.
+- `withImageInfo`: If true, provides a property `_imageInfo` for images in responses.
+
+
+#### Data
+
+`data` object is populated on the fly and never emptied unless you ask for `reset()`. Thus you can record a complete session on a website and stop it whenever you want.
+
+`data` is conform to HAR format 1.2 with some additional fields:
+
+- `entries[X]._url`: Shorthand to `entries[X].request.url
+- `entries[X].response._contentType`: Content-Type without charset
+- `entries[X].response._contentCharset`: Content Charset
+- `entries[X].response._referrer`: Referrer URL
+- `entries[X].response._imageInfo`: Defined if resource is an image and `withImageInfo` option was set to `true` and contains `width`, `height` and `animated` properties.
+
+
+#### Events
+
+All events are emited on page-progress instance (collector `listener` property).
+
+
+##### collectfinish
+
+This event is emitted when a page load was finish (plus a waiting time if specified by `options.wait`.
+
+##### harentry (entry, request, responseStart, responseEnd, responseData)
+
+This event allows you to get and manipulate HAR entries on the fly. Here is an example:
+
+```js
+collector.listener.on('harentry', function(entry, req, rStart, rEnd, data) {
+    entry.response._foolishValue = entry.response.bodySize * 2;
+});
+```
+
+
 Examples
 --------
 
@@ -216,10 +294,10 @@ To get a page source code, we'll need to combine net-log and page-progress.
 ```js
 'use strict';
 
-const tabBrowser = require("sdk/deprecated/tab-browser");
+const tabBrowser = require('sdk/deprecated/tab-browser');
 
-const NetLog = require("net-log/net-log");
-const PageProgress = require("net-log/page-progress");
+const NetLog = require('net-log/net-log');
+const PageProgress = require('net-log/page-progress');
 
 exports.main = function() {
     tabBrowser.TabTracker({
@@ -254,5 +332,55 @@ exports.main = function() {
             PageProgress.unregisterBrowser(tab.linkedBrowser);
         }
     });
+};
+```
+
+
+### Collect HAR data on each page load
+
+Let's collect HAR data for each tab.
+
+```js
+'use strict';
+
+const tabBrowser = require("sdk/deprecated/tab-browser");
+
+const NetLog = require("net-log/net-log");
+const PageProgress = require("net-log/page-progress");
+const Har = require("net-log/har");
+
+exports.main = function() {
+    // A WeakMap to store HAR information for each browser
+    let harCollect = new WeakMap();
+
+    tabBrowser.TabTracker({
+        onTrack: function(tab) {
+            let collector = Har.startCollector(tab.linkedBrowser, {
+                wait: 1000,           // Wait 1s before collectfinish event
+                withImageInfo: true,  // Who doesn't want image information?
+                captureTypes: [
+                    /text\/css/       // We want to capture CSS contents
+                ]
+            });
+
+            // Keep a reference to collected data
+            harCollect.set(tab.linkedBrowser, collector.data);
+
+            collector.listener.on('collectfinish', function() {
+                // Show me the money!
+                console.log(JSON.stringify(harCollect.get(tab.linkedBrowser), null, 2))
+
+                // This is a one shot, remove data now
+                collector.reset();
+            });
+        },
+        onUntrack: function(tab) {
+            PageProgress.unregisterBrowser(tab.linkedBrowser);
+            NetLog.unregisterBrowser(tab.linkedBrowser);
+            harCollect.has(tab.linkedBrowser) && harCollect.delete(tab.linkedBrowser);
+        }
+    });
+
+    require("sdk/tabs").open("http://neokraft.net/");
 };
 ```
