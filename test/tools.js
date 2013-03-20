@@ -127,6 +127,7 @@ const openTab = function() {
                         url: url,
                         tab: tab,
                         browser: browser,
+                        open: open,
                         close: close,
                         loadFailed:false
                     });
@@ -141,6 +142,7 @@ const openTab = function() {
                     url: url,
                     tab: tab,
                     browser: browser,
+                    open: open,
                     close: close,
                     loadFailed:true
                 });

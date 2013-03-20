@@ -504,4 +504,57 @@ exports['test network error'] = function(assert, done) {
     .then(done);
 };
 
+exports['test har'] = function(assert, done) {
+    const HarLib = require('net-log/har');
+    let collector;
+
+    openTab()
+    .then(function(result) {
+        collector = HarLib.startCollector(result.browser, {
+            withImageInfo: true,
+            captureTypes: [
+                /^text\/css/
+            ]
+        });
+        return result.open(pageURL('/01.html'));
+    })
+    .then(function(result) {
+        assert.equal(collector.data.pages.length, 1);
+        assert.equal(collector.data.entries.length, 1);
+        return result.open(pageURL('/03.html'));
+    })
+    .then(function(result) {
+        assert.equal(collector.data.pages.length, 2);
+        assert.equal(collector.data.entries.length, 9);
+
+        assert.equal(collector.data.pages[0].id, pageURL('/01.html'));
+        assert.equal(collector.data.pages[1].id, pageURL('/03.html'));
+
+        collector.reset();
+        return result.open(pageURL('/03.html'));
+    })
+    .then(function(result) {
+        assert.equal(collector.data.pages.length, 1);
+        assert.equal(collector.data.entries.length, 8);
+
+        assert.equal(collector.data.pages[0].id, pageURL('/03.html'));
+        assert.equal(collector.data.entries[0]._url, pageURL('/03.html'));
+        assert.equal(collector.data.entries[2]._url, pageURL('/test.css'));
+        assert.equal(collector.data.entries[2].response.content.size, collector.data.entries[2].response.content.text.length);
+        assert.equal(collector.data.entries[5]._url, pageURL('/nyan.gif'));
+        assert.deepEqual(collector.data.entries[5].response._imageInfo, {width:400, height:400, animated:true});
+
+        collector.stop();
+        return result.open(pageURL('/03.html'));
+    })
+    .then(function(result) {
+        assert.equal(collector.data.pages.length, 0);
+        assert.equal(collector.data.entries.length, 0);
+
+        return result.close();
+    })
+    .then(null, console.exception)
+    .then(done);
+};
+
 require('test').run(exports);

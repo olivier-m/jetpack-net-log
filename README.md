@@ -234,7 +234,7 @@ This function starts collecting HAR data for provided `browser`. It returns a ob
 
 - `data`: Collected data.
 - `listener`: Reference to the page-progress listener instance.
-- `start()`: Starts collector.
+- `start()`: Starts collector. Could take an `url` parameter (see example).
 - `stop()`: This function stops collector.
 - `reset()`: This function resets `data` property.
 
@@ -351,11 +351,12 @@ const Har = require("net-log/har");
 
 exports.main = function() {
     // A WeakMap to store HAR information for each browser
-    let harCollect = new WeakMap();
+    let harEntries = new WeakMap();
 
     tabBrowser.TabTracker({
         onTrack: function(tab) {
             let collector = Har.startCollector(tab.linkedBrowser, {
+                autoStart: false,     // We start manually
                 wait: 1000,           // Wait 1s before collectfinish event
                 withImageInfo: true,  // Who doesn't want image information?
                 captureTypes: [
@@ -363,24 +364,30 @@ exports.main = function() {
                 ]
             });
 
-            // Keep a reference to collected data
-            harCollect.set(tab.linkedBrowser, collector.data);
+            // Set our harEntries value
+            harEntries.set(tab.linkedBrowser, []);
+
+            collector.listener.on('loadstarted', function(url) {
+                // We pass url to trigger loadstarted callback as it this case it would
+                // never be called
+                collector.start(url);
+            });
 
             collector.listener.on('collectfinish', function() {
-                // Show me the money!
-                console.log(JSON.stringify(harCollect.get(tab.linkedBrowser), null, 2))
+                // Keep a copy of entries
+                harEntries.set(tab.linkedBrowser, [].slice.call(collector.data.entries));
+                // Stop collecting now
+                collector.stop();
 
-                // This is a one shot, remove data now
-                collector.reset();
+                // You can now use entries
+                console.log(JSON.stringify(harEntries.get(tab.linkedBrowser), null, 2));
             });
         },
         onUntrack: function(tab) {
             PageProgress.unregisterBrowser(tab.linkedBrowser);
             NetLog.unregisterBrowser(tab.linkedBrowser);
-            harCollect.has(tab.linkedBrowser) && harCollect.delete(tab.linkedBrowser);
+            harEntries.has(tab.linkedBrowser) && harEntries.delete(tab.linkedBrowser);
         }
     });
-
-    require("sdk/tabs").open("http://neokraft.net/");
 };
 ```
