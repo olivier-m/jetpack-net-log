@@ -181,6 +181,11 @@ This event is emitted when page transfer starts.
 This event is emitted when page content is loaded. This is the equivalent event of `DOMContentLoaded` window event. `status` is a boolean indicating success or failure of loading.
 
 
+##### loadstopped (status, url)
+
+This event is emitted when browser stopped loading page. It happens juste before loadfinished.
+
+
 ##### loadfinished (status, url)
 
 This event is emitted when the whole page is loaded. This is the equivalent event of `load` window event. `status` is a boolean indicating success or failure of loading.
