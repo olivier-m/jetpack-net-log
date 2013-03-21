@@ -40,10 +40,13 @@ This event is emitted when a request starts. It received a `request` object.
 This event is emitted when a response is received, at every step of a response (when it starts, when data comes in and when it stops). It received a `response` object.
 
 
-##### startrequest ({nsIChannel} request)
+##### modifyrequest ({nsIChannel} request)
 
-This raw event is emitted when a request starts and received a nsIChannel instance. This is the place to tamper data if you need to.
+This raw event is emitted when a request starts and receives a nsIChannel instance. This is the place to tamper data if you need to.
 
+##### examineresponse ({nsIChannel} request)
+
+This raw event is emitted when a response is about to start (before TracingListener init) and receives a nsIChannel instance.
 
 ##### startresponse ({nsIChannel} request, context)
 
