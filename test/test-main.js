@@ -539,10 +539,12 @@ exports['test har'] = function(assert, done) {
 
         assert.equal(collector.data.pages[0].id, pageURL('/03.html'));
         assert.equal(collector.data.entries[0]._url, pageURL('/03.html'));
+        assert.equal(collector.data.entries[0]._id, 0);
         assert.equal(collector.data.entries[2]._url, pageURL('/test.css'));
         assert.equal(collector.data.entries[2].response.content.size, collector.data.entries[2].response.content.text.length);
-        assert.equal(collector.data.entries[5]._url, pageURL('/nyan.gif'));
-        assert.deepEqual(collector.data.entries[5].response._imageInfo, {width:400, height:400, animated:true});
+
+        let nyan = collector.data.entries.filter(function(v) v._url == pageURL('/nyan.gif'))[0];
+        assert.deepEqual(nyan.response._imageInfo, {width:400, height:400, animated:true});
 
         collector.stop();
         return result.open(pageURL('/03.html'));
