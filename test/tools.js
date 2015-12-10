@@ -10,7 +10,7 @@ const {Cc, Ci} = require('chrome');
 
 const Q = require('sdk/core/promise');
 const {getBrowserForTab, getOwnerWindow} = require('sdk/tabs/utils');
-const {startServerAsync} = require('sdk/test/httpd');
+const {startServerAsync} = require('./httpd');
 const {setTimeout, clearTimeout} = require('sdk/timers');
 const {URL} = require('sdk/url');
 
