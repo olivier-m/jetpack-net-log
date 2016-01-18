@@ -62,13 +62,17 @@ const getImageInfo = function(data, contentType, url) {
                     .createInstance(Ci.nsIBufferedInputStream);
         bIS.init(input, 1024);
 
-        let outParam = {value: null};
-        imgTools.decodeImageData(bIS, contentType, outParam);
-
+        let img = imgTools.decodeImage(bIS, contentType);
+        let animated = false;
+        try{
+            // may throw an exception in some case. see imgITools idl
+            animated = img.animated;
+        }
+        catch(e) {}
         return {
-            width: outParam.value.width,
-            height: outParam.value.height,
-            animated: outParam.value.animated
+            width: img.width,
+            height: img.height,
+            animated: animated
         };
     } catch(e) {
         return {
