@@ -56,6 +56,7 @@ var WebProgressListener = {
                 sendAsyncMessage("net-log:PageProgress", {progress:"contentloaded", success:true, url: aRequest.URI.spec});
             }.bind(this);
             content.document.addEventListener('DOMContentLoaded', loaded, true);
+            sendAsyncMessage("net-log:PageProgress", {progress:"transferstarted", url: aRequest.URI.spec});
         }
         else if (this.isStopped(aStateFlags)) {
             if (!isSuccess) {

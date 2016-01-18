@@ -65,7 +65,6 @@ exports['test one resource'] = function(assert, done) {
     })
     .then(function(result) {
         NetLog.unregisterBrowser(result.browser);
-
         assert.equal(reqs.length, 1);
         assert.equal(stages.start.length, 1);
         assert.equal(stages.end.length, 1);
@@ -558,5 +557,3 @@ exports['test har'] = function(assert, done) {
     .then(null, console.exception)
     .then(done);
 };
-
-require('test').run(exports);

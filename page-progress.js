@@ -132,6 +132,7 @@ const PageProgress = Class({
             case 'urlchanged':
             case 'urlerror':
             case 'loadstarted':
+            case 'transferstarted':
                 emit(this, message.data.progress, message.data.url);
                 break;
             case 'contentloaded':
