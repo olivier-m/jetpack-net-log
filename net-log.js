@@ -258,11 +258,7 @@ TracingListener.prototype = {
         let browser;
         try {
             request.QueryInterface(Ci.nsIChannel);
-            browser = getBrowserForRequest(request);
-            if (typeof(request.URI) === 'undefined'  ||
-                // browser could have been removed during request
-                !browser ||
-                getListener(browser) === null) {
+            if (typeof(request.URI) === 'undefined') {
                 return;
             }
         }

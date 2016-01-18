@@ -7,14 +7,15 @@ const imgTools = Cc['@mozilla.org/image/tools;1'].getService(Ci.imgITools);
 const getBrowserForRequest = function(request) {
     if (request instanceof Ci.nsIRequest) {
         try {
-            request.QueryInterface(Ci.nsIHttpChannel);
-            let loadContext = getRequestLoadContext(request);
+            let channel = request.QueryInterface(Ci.nsIHttpChannel);
+
+            let loadContext = getRequestLoadContext(channel);
             if (loadContext) {
                 let browser = loadContext.topFrameElement;
                 return browser;
             }
         }
-        catch(e) {}
+        catch(e) { }
     }
     return null;
 };
@@ -23,7 +24,7 @@ exports.getBrowserForRequest = getBrowserForRequest;
 const getRequestLoadContext = function(request) {
     if (request && request.notificationCallbacks) {
         try {
-            return request.notificationCallbacks.getInterface(Ci.nsILoadContext);
+            return request.QueryInterface(Ci.nsIChannel).notificationCallbacks.getInterface(Ci.nsILoadContext);
         }
         catch (ex) { }
     }
