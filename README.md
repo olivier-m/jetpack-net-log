@@ -286,7 +286,7 @@ This event is emitted when a page load was finish (plus a waiting time if specif
 This event allows you to get and manipulate HAR entries on the fly. Here is an example:
 
 ```js
-collector.listener.on('harentry', function(entry, req, rStart, rEnd, data) {
+collector.getListener().on('harentry', function(entry, req, rStart, rEnd, data) {
     entry.response._foolishValue = entry.response.bodySize * 2;
 });
 ```
@@ -375,13 +375,13 @@ exports.main = function() {
             // Set our harEntries value
             harEntries.set(tab.linkedBrowser, []);
 
-            collector.listener.on('loadstarted', function(url) {
+            collector.getListener().on('loadstarted', function(url) {
                 // We pass url to trigger loadstarted callback as it this case it would
                 // never be called
                 collector.start(url);
             });
 
-            collector.listener.on('collectfinish', function() {
+            collector.getListener().on('collectfinish', function() {
                 // Keep a copy of entries
                 harEntries.set(tab.linkedBrowser, [].slice.call(collector.data.entries));
                 // Stop collecting now

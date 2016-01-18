@@ -21,6 +21,9 @@ const startCollector = function(browser, options) {
         'autoStart': {
             map: (v) => typeof(v) === 'boolean' ? v : true
         },
+        'autoRegister': {
+            map: (v) => typeof(v) === 'boolean' ? v : true
+        },
         'wait': {
             map: (v) => { return parseInt(v) || 0 }
         },
@@ -203,10 +206,34 @@ const startCollector = function(browser, options) {
         });
     };
 
-    let PL = PageProgress.getListener(browser) || PageProgress.registerBrowser(browser);
-    let NL = NetLog.getListener(browser) || NetLog.registerBrowser(browser);
+    let PL = null;
+    let NL = null;
+    let isRegistered = false;
+    let isStarted = false;
 
+    let register = function() {
+        if(isRegistered) {
+            return;
+        }
+        PL = PageProgress.getListener(browser) || PageProgress.registerBrowser(browser);
+        NL = NetLog.getListener(browser) || NetLog.registerBrowser(browser);
+        isRegistered = true;
+    }
+
+    let unregister = function() {
+        if (!isRegistered) {
+            return;
+        }
+        stop();
+        PageProgress.unregisterBrowser(browser);
+        PL = null;
+        NetLog.unregisterBrowser(browser);
+        NL = null;
+        isRegistered = false;
+    }
+    
     let start = function(url) {
+        register();
         stop();
         PL.on('loadstarted', onStart);
         PL.on('contentloaded', onLoaded);
@@ -217,15 +244,21 @@ const startCollector = function(browser, options) {
         if (typeof(url) !== 'undefined') {
             onStart(url);
         }
+        isStarted = true;
     };
 
     let stop = function() {
+        if (!isStarted) {
+            reset();
+            return;
+        }
         PL.removeListener('loadstarted', onStart);
         PL.removeListener('contentloaded', onLoaded);
         PL.removeListener('loadfinished', onFinished);
         NL.removeListener('request', onRequest);
         NL.removeListener('response', onResponse);
         reset();
+        isStarted = false;
     };
 
     let reset = function() {
@@ -238,13 +271,20 @@ const startCollector = function(browser, options) {
     if (options.autoStart) {
         start();
     }
+    else if (options.autoRegister) {
+        register();
+    }
 
     return {
         data: result,
-        listener: PL,
+        getListener : function() {
+            return PL;
+        },
         start: start,
         stop: stop,
-        reset: reset
+        reset: reset,
+        register : register,
+        unregister : unregister
     };
 };
 exports.startCollector = startCollector;

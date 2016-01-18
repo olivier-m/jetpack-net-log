@@ -78,8 +78,24 @@ unload.when(function() {
         v.stop();
         return false;
     });
+    removeFrameScript();
 });
 
+function initFrameScript() {
+    if (!frameScriptLoaded) {
+        let frameScriptUri = module.uri.replace('page-progress', 'frame-script');
+        globalMM.loadFrameScript(frameScriptUri, true);
+        frameScriptLoaded = true;
+    }
+}
+
+function removeFrameScript() {
+    if (frameScriptLoaded) {
+        let frameScriptUri = module.uri.replace('page-progress', 'frame-script');
+        globalMM.removeDelayedFrameScript(frameScriptUri);
+        frameScriptLoaded = false;
+    }
+}
 
 const PageProgress = Class({
     extends: EventTarget,
@@ -87,12 +103,7 @@ const PageProgress = Class({
     initialize: function(browser, options) {
         EventTarget.prototype.initialize.call(this, options);
         this.browser = browser;
-
-        if (!frameScriptLoaded) {
-            let frameScriptUri = module.uri.replace('page-progress', 'frame-script');
-            globalMM.loadFrameScript(frameScriptUri, true);
-            frameScriptLoaded = true;
-        }
+        initFrameScript();
     },
 
     start : function() {
