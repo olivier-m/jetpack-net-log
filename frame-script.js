@@ -182,7 +182,29 @@ let webProgress = docShell.QueryInterface(Ci.nsIInterfaceRequestor)
 webProgress.addProgressListener(WebProgressListener,
             Ci.nsIWebProgress.NOTIFY_STATE_ALL | Ci.nsIWebProgress.NOTIFY_LOCATION);
 
+let isRegistered = true;
+
 addEventListener('unload', function(event){
-    webProgress.removeProgressListener(WebProgressListener);
+    if (isRegistered) {
+        webProgress.removeProgressListener(WebProgressListener);
+        isRegistered = false;
+    }
 });
 
+addMessageListener('net-log:deactivate', {
+    receiveMessage: function(message) {
+        if (isRegistered) {
+            webProgress.removeProgressListener(WebProgressListener);
+            isRegistered = false;
+        }
+    }
+});
+
+addMessageListener('net-log:reactivate', {
+    receiveMessage: function(message) {
+        if (!isRegistered) {
+            webProgress.addProgressListener(WebProgressListener,
+                Ci.nsIWebProgress.NOTIFY_STATE_ALL | Ci.nsIWebProgress.NOTIFY_LOCATION);
+        }
+    }
+});

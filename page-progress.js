@@ -12,11 +12,19 @@ const unload = require('sdk/system/unload');
 const WPL = Ci.nsIWebProgressListener;
 
 var globalMM = Cc["@mozilla.org/globalmessagemanager;1"]
-              .getService(Ci.nsIMessageListenerManager);
+              .getService(Ci.nsIMessageListenerManager)
+              .QueryInterface(Ci.nsIMessageBroadcaster);
+
 let browserMap = new WeakMap();
 let listenerList = [];
 
 let frameScriptLoaded = false;
+
+
+// when the module is loaded, it can be loaded after a desactivation/reactivation
+// for instance during an update of the addon.
+// so be sure to reactivate stuffs into already loaded frame-scripts
+globalMM.broadcastAsyncMessage('net-log:reactivate');
 
 /**
  * This functions registers a new progress listener for given browser.
@@ -89,12 +97,22 @@ function initFrameScript() {
     }
 }
 
+/**
+ * Remove the frame-script
+ *
+ * Note: it doesn't remove already loaded frame-script. It just prevents the
+ * loading of the frame-script into new tabs
+ */
 function removeFrameScript() {
+    
     if (frameScriptLoaded) {
         let frameScriptUri = module.uri.replace('page-progress', 'frame-script');
         globalMM.removeDelayedFrameScript(frameScriptUri);
         frameScriptLoaded = false;
     }
+    // deactivate some stuff into already loaded frame scripts
+    globalMM.broadcastAsyncMessage('net-log:deactivate');
+
 }
 
 const PageProgress = Class({
