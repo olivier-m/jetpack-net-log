@@ -4,7 +4,7 @@
     "description": "Resource loading watcher for Addon-SDK",
     "author": "Olivier Meunier <olivier@neokraft.net>",
     "contributors": ["Laurent Jouanneau <laurent@ljouanneau.com>"],
-    "version": "1.2.0-beta.2",
+    "version": "1.2.0",
     "license": "MPL-2.0",
     "engines": {
       "firefox": ">=40"

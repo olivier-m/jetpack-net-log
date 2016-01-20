@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2 (2016-XX-XX)
+## 1.2 (2016-01-20)
 
 - Compatibility with Firefox having multi-process enabled (Firefox > 45a2 )
 - har collector object :
