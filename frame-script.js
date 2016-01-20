@@ -189,7 +189,7 @@ addEventListener('unload', function(event){
         webProgress.removeProgressListener(WebProgressListener);
         isRegistered = false;
     }
-});
+}, false);
 
 addMessageListener('net-log:deactivate', {
     receiveMessage: function(message) {
