@@ -65,7 +65,6 @@ exports['test one resource'] = function(assert, done) {
     })
     .then(function(result) {
         NetLog.unregisterBrowser(result.browser);
-
         assert.equal(reqs.length, 1);
         assert.equal(stages.start.length, 1);
         assert.equal(stages.end.length, 1);
@@ -73,7 +72,7 @@ exports['test one resource'] = function(assert, done) {
 
         let request = reqs[0];
         let response = stages.end[0];
-        let data = stages.data.filter(function(r) r.id === 0).map(function(r) r.data).join('');
+        let data = stages.data.filter((r) => r.id === 0).map((r) => r.data).join('');
 
         assert.equal(request.id, 0);
         assert.equal(request.url, result.url);
@@ -224,19 +223,19 @@ exports['test many resources'] = function(assert, done) {
             'LOAD FINISHED', true
         ]);
 
-        let jpg = stages.end.filter(function(r) r.url === pageURL('/image.jpg'));
+        let jpg = stages.end.filter((r) => r.url === pageURL('/image.jpg'));
         assert.equal(jpg.length, 1);
         jpg = jpg[0];
         assert.equal(jpg.contentType, 'image/jpeg');
         assert.ok(jpg.bodySize > 0);
 
-        let gif = stages.end.filter(function(r) r.url == pageURL('/nyan.gif'));
+        let gif = stages.end.filter((r) => r.url == pageURL('/nyan.gif'));
         assert.equal(gif.length, 1);
         gif = gif[0];
         assert.equal(gif.contentType, 'image/gif');
         assert.ok(gif.bodySize > 0);
 
-        let css = stages.end.filter(function(r) r.url === pageURL('/test.css'));
+        let css = stages.end.filter((r) => r.url === pageURL('/test.css'));
 
         assert.equal(css.length, 1);
         css = css[0];
@@ -244,9 +243,9 @@ exports['test many resources'] = function(assert, done) {
         assert.ok(css.bodySize > 0);
 
         // Check capture
-        let mainBody = stages.data.filter(function(r) r.id === 0).map(function(r) r.data).join('');
-        let cssBody = stages.data.filter(function(r) r.url === pageURL('/test.css'))
-                        .map(function(r) r.data)
+        let mainBody = stages.data.filter((r) => r.id === 0).map((r) => r.data).join('');
+        let cssBody = stages.data.filter((r) => r.url === pageURL('/test.css'))
+                        .map((r) => r.data)
                         .join('');
 
         assert.equal(mainBody.length, stages.end[0].bodySize);
@@ -274,13 +273,13 @@ exports['test many resources'] = function(assert, done) {
         assert.ok(xhr[0].bodySize > 0);
 
         // Image capture
-        let jpgBody = stages.data.filter(function(r) r.url === jpg.url)
-                        .map(function(r) r.data)
+        let jpgBody = stages.data.filter((r) => r.url === jpg.url)
+                        .map((r) => r.data)
                         .join('');
         let jpgInfo = getImageInfo(jpgBody, jpg.contentType, jpg.url);
 
-        let gifBody = stages.data.filter(function(r) r.url === gif.url)
-                        .map(function(r) r.data)
+        let gifBody = stages.data.filter((r) => r.url === gif.url)
+                        .map((r) => r.data)
                         .join('');
         let gifInfo = getImageInfo(gifBody, gif.contentType, gif.url);
 
@@ -427,7 +426,7 @@ exports['test redirect'] = function(assert, done) {
         assert.equal(stages.end[1].url, result.browser.contentWindow.location.href);
         assert.equal(stages.end[1].status, 200);
 
-        let data = stages.data.filter(function(r) r.id === 1).map(function(r) r.data).join('');
+        let data = stages.data.filter((r) => r.id === 1).map((r) => r.data).join('');
         assert.equal(data.length, stages.end[1].bodySize);
 
         return result.close();
@@ -543,7 +542,7 @@ exports['test har'] = function(assert, done) {
         assert.equal(collector.data.entries[2]._url, pageURL('/test.css'));
         assert.equal(collector.data.entries[2].response.content.size, collector.data.entries[2].response.content.text.length);
 
-        let nyan = collector.data.entries.filter(function(v) v._url == pageURL('/nyan.gif'))[0];
+        let nyan = collector.data.entries.filter((v) => v._url == pageURL('/nyan.gif'))[0];
         assert.deepEqual(nyan.response._imageInfo, {width:400, height:400, animated:true});
 
         collector.stop();
@@ -558,5 +557,3 @@ exports['test har'] = function(assert, done) {
     .then(null, console.exception)
     .then(done);
 };
-
-require('test').run(exports);

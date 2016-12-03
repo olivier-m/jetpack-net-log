@@ -4,41 +4,27 @@ const {Cc, Ci} = require('chrome');
 
 const imgTools = Cc['@mozilla.org/image/tools;1'].getService(Ci.imgITools);
 
-const getWindowForRequest = function(request) {
-    let loadContext = getRequestLoadContext(request);
-    if (loadContext) {
-        return loadContext.associatedWindow;
-    }
-    return null;
-};
-exports.getWindowForRequest = getWindowForRequest;
-
-
 const getBrowserForRequest = function(request) {
     if (request instanceof Ci.nsIRequest) {
         try {
-            request.QueryInterface(Ci.nsIHttpChannel);
-            let window = getWindowForRequest(request);
-            if (window) {
-                let browser = window.QueryInterface(Ci.nsIInterfaceRequestor)
-                   .getInterface(Ci.nsIWebNavigation)
-                   .QueryInterface(Ci.nsIDocShell)
-                   .chromeEventHandler;
+            let channel = request.QueryInterface(Ci.nsIHttpChannel);
 
+            let loadContext = getRequestLoadContext(channel);
+            if (loadContext) {
+                let browser = loadContext.topFrameElement;
                 return browser;
             }
         }
-        catch(e) {}
+        catch(e) { }
     }
     return null;
 };
 exports.getBrowserForRequest = getBrowserForRequest;
 
-
 const getRequestLoadContext = function(request) {
     if (request && request.notificationCallbacks) {
         try {
-            return request.notificationCallbacks.getInterface(Ci.nsILoadContext);
+            return request.QueryInterface(Ci.nsIChannel).notificationCallbacks.getInterface(Ci.nsILoadContext);
         }
         catch (ex) { }
     }
@@ -76,13 +62,17 @@ const getImageInfo = function(data, contentType, url) {
                     .createInstance(Ci.nsIBufferedInputStream);
         bIS.init(input, 1024);
 
-        let outParam = {value: null};
-        imgTools.decodeImageData(bIS, contentType, outParam);
-
+        let img = imgTools.decodeImage(bIS, contentType);
+        let animated = false;
+        try{
+            // may throw an exception in some case. see imgITools idl
+            animated = img.animated;
+        }
+        catch(e) {}
         return {
-            width: outParam.value.width,
-            height: outParam.value.height,
-            animated: outParam.value.animated
+            width: img.width,
+            height: img.height,
+            animated: animated
         };
     } catch(e) {
         return {

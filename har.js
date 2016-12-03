@@ -13,20 +13,25 @@ const {getImageInfo} = require('./utils');
 
 const RE_IMG = /^image\/(?!svg)/;
 
-
+/**
+ * @param XULElement browser
+ */
 const startCollector = function(browser, options) {
     let requirements = {
         'autoStart': {
-            map: function(v) typeof(v) === 'boolean' ? v : true
+            map: (v) => typeof(v) === 'boolean' ? v : true
+        },
+        'autoRegister': {
+            map: (v) => typeof(v) === 'boolean' ? v : true
         },
         'wait': {
-            map: function(v) parseInt(v) || 0
+            map: (v) => { return parseInt(v) || 0 }
         },
         'captureTypes': {
-            map: function(v) Array.isArray(v) && v || []
+            map: (v) => { return Array.isArray(v) && v || []}
         },
         'withImageInfo': {
-            map: function(v) !!v
+            map: (v) => !!v
         }
     };
     options = validateOptions(options || {}, requirements);
@@ -64,7 +69,7 @@ const startCollector = function(browser, options) {
     };
     let onLoaded = function(status, url) {
         let pID = result.pages.length - 1;
-        result.pages[pID].title = this.browser.contentWindow.document.title;
+        result.pages[pID].title = this.browser.contentTitle;
         result.pages[pID].pageTimings.onContentLoad = new Date() - startTime;
     };
     let onFinished = function(status, url) {
@@ -123,7 +128,7 @@ const startCollector = function(browser, options) {
                 resourceStack[response.id].end !== null)
             {
                 result.entries.push(createEntry(resourceStack[response.id]));
-                result.entries.sort(function(a, b) a._id > b._id);
+                result.entries.sort((a, b) => a._id > b._id);
             }
             delete(resourceStack[response.id]);
         }
@@ -201,10 +206,34 @@ const startCollector = function(browser, options) {
         });
     };
 
-    let PL = PageProgress.getListener(browser) || PageProgress.registerBrowser(browser);
-    let NL = NetLog.getListener(browser) || NetLog.registerBrowser(browser);
+    let PL = null;
+    let NL = null;
+    let isRegistered = false;
+    let isStarted = false;
 
+    let register = function() {
+        if(isRegistered) {
+            return;
+        }
+        PL = PageProgress.getListener(browser) || PageProgress.registerBrowser(browser);
+        NL = NetLog.getListener(browser) || NetLog.registerBrowser(browser);
+        isRegistered = true;
+    }
+
+    let unregister = function() {
+        if (!isRegistered) {
+            return;
+        }
+        stop();
+        PageProgress.unregisterBrowser(browser);
+        PL = null;
+        NetLog.unregisterBrowser(browser);
+        NL = null;
+        isRegistered = false;
+    }
+    
     let start = function(url) {
+        register();
         stop();
         PL.on('loadstarted', onStart);
         PL.on('contentloaded', onLoaded);
@@ -215,15 +244,21 @@ const startCollector = function(browser, options) {
         if (typeof(url) !== 'undefined') {
             onStart(url);
         }
+        isStarted = true;
     };
 
     let stop = function() {
+        if (!isStarted) {
+            reset();
+            return;
+        }
         PL.removeListener('loadstarted', onStart);
         PL.removeListener('contentloaded', onLoaded);
         PL.removeListener('loadfinished', onFinished);
         NL.removeListener('request', onRequest);
         NL.removeListener('response', onResponse);
         reset();
+        isStarted = false;
     };
 
     let reset = function() {
@@ -236,13 +271,20 @@ const startCollector = function(browser, options) {
     if (options.autoStart) {
         start();
     }
+    else if (options.autoRegister) {
+        register();
+    }
 
     return {
         data: result,
-        listener: PL,
+        getListener : function() {
+            return PL;
+        },
         start: start,
         stop: stop,
-        reset: reset
+        reset: reset,
+        register : register,
+        unregister : unregister
     };
 };
 exports.startCollector = startCollector;

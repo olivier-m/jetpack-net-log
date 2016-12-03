@@ -8,7 +8,7 @@ const {EventTarget} = require('sdk/event/target');
 const events = require('sdk/system/events');
 const unload = require('sdk/system/unload');
 
-const {getBrowserForRequest, getWindowForRequest} = require('./utils');
+const {getBrowserForRequest} = require('./utils');
 
 const ioService = Cc['@mozilla.org/network/io-service;1'].getService(Ci.nsIIOService);
 
@@ -34,7 +34,6 @@ const registerBrowser = function(browser, options) {
         // We assume that when you register a browser, you want start tracing.
         startTracer();
     }
-
     // Unregister any previously registered browser
     unregisterBrowser(browser);
 
@@ -148,7 +147,6 @@ const onRequestStart = function(evt) {
     listener.lastIndex++;
     let index = listener.lastIndex;
     listener.requestStack.push(subject.name);
-
     emit(listener, 'modifyrequest', subject);
     emit(listener, 'request', Object.freeze(traceRequest(index, subject)));
 };
@@ -177,7 +175,6 @@ const onRequestResponse = function(evt) {
     let i = listener.requestStack.indexOf(subject.name);
     listener.requestStack.splice(i, 1);
     let index = listener.lastIndex - listener.requestStack.length;
-
     emit(listener, 'examineresponse', subject);
 
     listener = new TracingListener(subject, index, listener);
@@ -204,15 +201,12 @@ TracingListener.prototype = {
         this.originalListener.onStartRequest(request, context);
         try {
             request.QueryInterface(Ci.nsIChannel);
-            if (getListener(getBrowserForRequest(request)) === null) {
+            if (typeof(request.URI) === 'undefined' ||
+                getListener(getBrowserForRequest(request)) === null) {
                 return;
             }
         }
         catch(e) {
-            return;
-        }
-
-        if (typeof(request.URI) === 'undefined' || !this._inWindow(request)) {
             return;
         }
 
@@ -227,7 +221,8 @@ TracingListener.prototype = {
         try {
             try {
                 request.QueryInterface(Ci.nsIChannel);
-                if (getListener(getBrowserForRequest(request)) === null) {
+                if (typeof(request.URI) === 'undefined' ||
+                    getListener(getBrowserForRequest(request)) === null) {
                     return;
                 }
             }
@@ -235,34 +230,35 @@ TracingListener.prototype = {
                 return;
             }
 
-            if (typeof(request.URI) !== 'undefined' && this._inWindow(request)) {
-                this.dataLength += count;
+            this.dataLength += count;
 
-                let [data, newIS] = this._captureData(inputStream, count);
-                inputStream = newIS;
-
-                emit(this.target, 'dataavailable', request, context, data, offset, count);
-                emit(this.target, 'response', mix(this.response, {
-                    stage: 'data',
-                    time: new Date(),
-                    data: data
-                }));
-            }
+            let [data, newIS] = this._captureData(inputStream, count);
+            inputStream = newIS;
+            emit(this.target, 'dataavailable', request, context, data, offset, count);
+            emit(this.target, 'response', mix(this.response, {
+                stage: 'data',
+                time: new Date(),
+                data: data
+            }));
         }
         catch(e) {
             console.exception(e);
         }
         finally {
-            this.originalListener.onDataAvailable(request, context, inputStream, offset, count);
+            try {
+                // loading may be aborted. let's catch the error to not polluate the console...
+                this.originalListener.onDataAvailable(request, context, inputStream, offset, count);
+            } catch(e) {
+            }
         }
     },
 
     onStopRequest: function(request, context, statusCode) {
         this.originalListener.onStopRequest(request, context, statusCode);
-
+        let browser;
         try {
             request.QueryInterface(Ci.nsIChannel);
-            if (getListener(getBrowserForRequest(request)) === null) {
+            if (typeof(request.URI) === 'undefined') {
                 return;
             }
         }
@@ -271,16 +267,6 @@ TracingListener.prototype = {
         }
 
         try {
-            if (typeof(request.URI) === 'undefined' || !this._inWindow(request)) {
-                return;
-            }
-
-            // browser could have been removed during request
-            let browser = getBrowserForRequest(request);
-            if (browser === null || getListener(browser) === null) {
-                return;
-            }
-
             // Finish response
             emit(this.target, 'stopresponse', request, context, statusCode);
             emit(this.target, 'response', mix(this.response, {
@@ -295,11 +281,6 @@ TracingListener.prototype = {
         catch(e) {
             console.exception(e);
         }
-    },
-
-    _inWindow: function(request) {
-        let win = getWindowForRequest(request);
-        return win !== null && typeof(win) !== 'undefined' && typeof(win.document) !== 'undefined';
     },
 
     _captureData: function(inputStream, count) {

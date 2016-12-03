@@ -286,7 +286,7 @@ This event is emitted when a page load was finish (plus a waiting time if specif
 This event allows you to get and manipulate HAR entries on the fly. Here is an example:
 
 ```js
-collector.listener.on('harentry', function(entry, req, rStart, rEnd, data) {
+collector.getListener().on('harentry', function(entry, req, rStart, rEnd, data) {
     entry.response._foolishValue = entry.response.bodySize * 2;
 });
 ```
@@ -362,8 +362,9 @@ exports.main = function() {
     let harEntries = new WeakMap();
 
     tabBrowser.TabTracker({
+        collector:null,
         onTrack: function(tab) {
-            let collector = Har.startCollector(tab.linkedBrowser, {
+            this.collector = Har.startCollector(tab.linkedBrowser, {
                 autoStart: false,     // We start manually
                 wait: 1000,           // Wait 1s before collectfinish event
                 withImageInfo: true,  // Who doesn't want image information?
@@ -374,26 +375,25 @@ exports.main = function() {
 
             // Set our harEntries value
             harEntries.set(tab.linkedBrowser, []);
-
-            collector.listener.on('loadstarted', function(url) {
+            
+            this.collector.getListener().on('loadstarted',
                 // We pass url to trigger loadstarted callback as it this case it would
                 // never be called
-                collector.start(url);
+                (url) => this.collector.start(url)
             });
 
-            collector.listener.on('collectfinish', function() {
+            this.collector.getListener().on('collectfinish', (function() {
                 // Keep a copy of entries
-                harEntries.set(tab.linkedBrowser, [].slice.call(collector.data.entries));
+                harEntries.set(tab.linkedBrowser, [].slice.call(this.collector.data.entries));
                 // Stop collecting now
-                collector.stop();
+                this.collector.stop();
 
                 // You can now use entries
                 console.log(JSON.stringify(harEntries.get(tab.linkedBrowser), null, 2));
-            });
+            }).bind(this));
         },
         onUntrack: function(tab) {
-            PageProgress.unregisterBrowser(tab.linkedBrowser);
-            NetLog.unregisterBrowser(tab.linkedBrowser);
+            this.collector.unregister();
             harEntries.has(tab.linkedBrowser) && harEntries.delete(tab.linkedBrowser);
         }
     });
